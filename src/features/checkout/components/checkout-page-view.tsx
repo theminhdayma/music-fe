@@ -25,6 +25,7 @@ interface CheckoutOrderResponse {
   paymentStatus: string
   createdAt: string
   itemsCount: number
+  checkoutUrl?: string
 }
 
 function extractErrorMessage(error: unknown): string {
@@ -89,12 +90,14 @@ export function CheckoutPageView() {
     try {
       const response = await api.post<ApiResponse<CheckoutOrderResponse>>("/buyer/orders/checkout")
       const order = response.data?.data
-      clearCart()
-      toast.success(order?.orderCode ? `Order ${order.orderCode} completed` : "Order completed")
-      router.push(order?.orderCode ? `/checkout/success?orderCode=${encodeURIComponent(order.orderCode)}` : "/checkout/success")
+      if (order?.checkoutUrl) {
+        toast.success("Redirecting to Stripe...")
+        window.location.href = order.checkoutUrl
+      } else {
+        throw new Error("Checkout URL is missing")
+      }
     } catch (error) {
       toast.error(extractErrorMessage(error))
-    } finally {
       setIsProcessing(false)
     }
   }
@@ -136,32 +139,23 @@ export function CheckoutPageView() {
           <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr] lg:items-start">
             <section className="space-y-6">
               <Card className="border-white/10 bg-white/[0.04] shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-md">
-                <CardContent className="space-y-5 p-6">
-                  <h2 className="text-xl font-semibold">Payment method</h2>
-
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <PaymentChip label="Credit Card" active icon={<CreditCard className="size-4" />} />
-                    <PaymentChip label="PayPal" icon={<CheckCircle2 className="size-4" />} />
-                    <PaymentChip label="Crypto" icon={<Sparkles className="size-4" />} />
+                <CardContent className="space-y-6 p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-fuchsia-500/10 text-fuchsia-400">
+                      <ShieldCheck className="size-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold">Secure Payment via Stripe</h2>
+                      <p className="text-sm text-zinc-400">All transactions are encrypted and processed securely by Stripe.</p>
+                    </div>
                   </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="Cardholder name" placeholder="Alex Creator" />
-                    <Field label="Card number" placeholder="4242 4242 4242 4242" />
-                    <Field label="Expiry" placeholder="MM/YY" />
-                    <Field label="CVC" placeholder="123" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-white/10 bg-white/[0.04] shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-md">
-                <CardContent className="space-y-4 p-6">
-                  <h2 className="text-xl font-semibold">Billing details</h2>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="Email" placeholder={user?.email ?? "buyer@example.com"} />
-                    <Field label="Country" placeholder="Vietnam" />
-                    <Field label="City" placeholder="Ho Chi Minh City" />
-                    <Field label="ZIP / Postal" placeholder="700000" />
+                  
+                  <div className="rounded-xl border border-white/5 bg-black/30 p-4 space-y-3">
+                    <p className="text-xs text-zinc-400">By proceeding, you will be redirected to Stripe Checkout to complete your purchase of licensing rights for selected music tracks.</p>
+                    <div className="flex flex-wrap gap-4 text-xs text-zinc-400">
+                      <div className="flex items-center gap-1.5"><Lock className="size-3 text-fuchsia-400" /> SSL Secured</div>
+                      <div className="flex items-center gap-1.5"><ShieldCheck className="size-3 text-fuchsia-400" /> PCI DSS Compliant</div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

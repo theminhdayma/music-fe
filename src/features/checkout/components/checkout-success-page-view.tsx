@@ -1,23 +1,86 @@
 "use client"
 
+import { api } from "@/api/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Navbar } from "@/features/home/components/navbar"
+import useCartStore from "@/store/cart-store"
 import { useMusicPlayerStore } from "@/store/music-player-store"
+import type { ApiResponse } from "@/types/home"
 import { motion } from "framer-motion"
-import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react"
+import { ArrowRight, CheckCircle2, Loader2, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
 
 export function CheckoutSuccessPageView() {
   const searchParams = useSearchParams()
-  const orderCode = searchParams.get("orderCode")
+  const sessionId = searchParams.get("session_id")
+  const [verifying, setVerifying] = useState(!!sessionId)
+  const [error, setError] = useState<string | null>(null)
+  const [confirmedOrderCode, setConfirmedOrderCode] = useState<string | null>(searchParams.get("orderCode"))
+
   const refreshOwnedTrackIds = useMusicPlayerStore((state) => state.refreshOwnedTrackIds)
+  const clearCart = useCartStore((state) => state.clearCart)
 
   useEffect(() => {
-    void refreshOwnedTrackIds()
-  }, [refreshOwnedTrackIds])
+    if (sessionId) {
+      const confirmPayment = async () => {
+        try {
+          const response = await api.post<ApiResponse<{ orderCode: string }>>(`/buyer/orders/checkout/confirm?sessionId=${sessionId}`)
+          const orderData = response.data?.data
+          if (orderData?.orderCode) {
+            setConfirmedOrderCode(orderData.orderCode)
+          }
+          clearCart()
+          await refreshOwnedTrackIds()
+          toast.success("Payment confirmed and library updated!")
+        } catch (err: any) {
+          console.error("Payment confirmation failed", err)
+          setError(err.response?.data?.message || "Failed to verify payment with Stripe. Please contact support.")
+          toast.error("Failed to verify payment")
+        } finally {
+          setVerifying(false)
+        }
+      }
+      void confirmPayment()
+    } else {
+      void refreshOwnedTrackIds()
+    }
+  }, [sessionId, clearCart, refreshOwnedTrackIds])
+
+  if (verifying) {
+    return (
+      <div className="min-h-screen bg-[#040307] text-white">
+        <Navbar />
+        <main className="flex min-h-[calc(100vh-80px)] w-full items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="size-12 animate-spin text-fuchsia-500 mx-auto" />
+            <h2 className="text-xl font-semibold">Verifying your payment...</h2>
+            <p className="text-zinc-400 text-sm">Please wait while we confirm your transaction with Stripe.</p>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#040307] text-white">
+        <Navbar />
+        <main className="flex min-h-[calc(100vh-80px)] w-full items-center justify-center px-4">
+          <div className="max-w-md w-full border border-red-500/20 bg-red-500/5 rounded-2xl p-6 text-center space-y-4">
+            <h2 className="text-2xl font-bold text-red-400">Payment Verification Failed</h2>
+            <p className="text-zinc-300 text-sm">{error}</p>
+            <Button asChild className="w-full bg-zinc-800 text-white hover:bg-zinc-700">
+              <Link href="/checkout">Back to Checkout</Link>
+            </Button>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#040307] text-white">
@@ -51,9 +114,9 @@ export function CheckoutSuccessPageView() {
             Payment was processed successfully. Your purchased tracks are now available in your library with signed download access.
           </p>
 
-          {orderCode && (
+          {confirmedOrderCode && (
             <p className="mx-auto mt-3 inline-flex rounded-full border border-white/10 bg-black/20 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-zinc-300">
-              Order {orderCode}
+              Order {confirmedOrderCode}
             </p>
           )}
 
