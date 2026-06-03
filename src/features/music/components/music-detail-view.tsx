@@ -181,7 +181,7 @@ export function MusicDetailPageView({ initialData }: MusicDetailPageViewProps) {
 
           {/* Right Column: Sticky Pricing & licensing panel */}
           <div className="h-fit lg:sticky lg:top-24">
-            <MusicPurchasePanel price={initialData.price} musicId={String(initialData.id)} />
+            <MusicPurchasePanel price={initialData.price} musicId={String(initialData.id)} isBuyerOwnedTrack={isBuyerOwnedTrack} />
           </div>
 
         </div>
@@ -208,7 +208,7 @@ interface LicenseOption {
   perks: string[]
 }
 
-function MusicPurchasePanel({ price, musicId }: { price?: number | string | null; musicId: string }) {
+function MusicPurchasePanel({ price, musicId, isBuyerOwnedTrack }: { price?: number | string | null; musicId: string; isBuyerOwnedTrack: boolean }) {
   const basePrice = getNumericPrice(price)
   const [selectedLicense, setSelectedLicense] = useState<string>("lease")
   const [expandedPerks, setExpandedPerks] = useState(false)
@@ -315,7 +315,7 @@ function MusicPurchasePanel({ price, musicId }: { price?: number | string | null
 
       {/* Primary Glowing Add to Cart button (extensible) */}
       <div className="pt-2">
-        <AddToCartButton musicId={musicId} />
+        <AddToCartButton musicId={musicId} isBuyerOwnedTrack={isBuyerOwnedTrack} />
       </div>
 
       {/* Secure Transactions Guarantee Footers */}
@@ -363,7 +363,7 @@ function getInitials(name?: string | null) {
     .join("")
 }
 
-function AddToCartButton({ musicId }: { musicId: string }) {
+function AddToCartButton({ musicId, isBuyerOwnedTrack }: { musicId: string; isBuyerOwnedTrack: boolean }) {
   const router = useRouter()
   const user = useAuthStore((s) => s.user)
   const isHydrated = useAuthStore((s) => s.isHydrated)
@@ -373,7 +373,7 @@ function AddToCartButton({ musicId }: { musicId: string }) {
   const [isAdding, setIsAdding] = useState(false)
   const [success, setSuccess] = useState(false)
 
-  const already = items.includes(musicId)
+  const already = items.includes(musicId) || isBuyerOwnedTrack
 
   async function handleAdd() {
     if (!isHydrated) return
@@ -429,6 +429,8 @@ function AddToCartButton({ musicId }: { musicId: string }) {
         <span className="flex items-center gap-2">
           <Check className="size-4 text-emerald-300" /> Added
         </span>
+      ) : isBuyerOwnedTrack ? (
+        <span>Already Purchased</span>
       ) : already ? (
         <span>Already Added</span>
       ) : (
